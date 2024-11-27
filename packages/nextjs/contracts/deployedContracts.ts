@@ -4,6 +4,170 @@
  */
 import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 
-const deployedContracts = {} as const;
+const deployedContracts = {
+  11155111: {
+    Loan: {
+      address: "0xC66421665c37050ce2C2cA05f8aFE718ded5F993",
+      abi: [
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "_usdEToken",
+              type: "address",
+            },
+            {
+              internalType: "address",
+              name: "_usdcToken",
+              type: "address",
+            },
+            {
+              internalType: "address",
+              name: "_aavePool",
+              type: "address",
+            },
+            {
+              internalType: "address",
+              name: "_ethenaStaking",
+              type: "address",
+            },
+            {
+              internalType: "address",
+              name: "_deployer",
+              type: "address",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "constructor",
+        },
+        {
+          inputs: [],
+          name: "aavePool",
+          outputs: [
+            {
+              internalType: "contract IPool",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "closeLoan",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "deployer",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_usdEAmount",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_leverage",
+              type: "uint256",
+            },
+          ],
+          name: "deposit",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "ethenaStaking",
+          outputs: [
+            {
+              internalType: "contract IEthenaStaking",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "usdEToken",
+          outputs: [
+            {
+              internalType: "contract IERC20",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "usdcToken",
+          outputs: [
+            {
+              internalType: "contract IERC20",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          name: "userDeposits",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "usdEAmount",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "sUsdEAmount",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "usdcAmount",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "aEthUsdcAmount",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+      ],
+      inheritedFunctions: {},
+    },
+  },
+} as const;
 
 export default deployedContracts satisfies GenericContractsDeclaration;
