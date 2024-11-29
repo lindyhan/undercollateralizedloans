@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   11155111: {
     Loan: {
-      address: "0xC66421665c37050ce2C2cA05f8aFE718ded5F993",
+      address: "0x29C1e56b81dC39b642feBeC73AaCE2B4145cd1df",
       abi: [
         {
           inputs: [
@@ -45,12 +45,25 @@ const deployedContracts = {
           name: "aavePool",
           outputs: [
             {
-              internalType: "contract IPool",
+              internalType: "address",
               name: "",
               type: "address",
             },
           ],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_amount",
+              type: "uint256",
+            },
+          ],
+          name: "approve",
+          outputs: [],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -85,8 +98,28 @@ const deployedContracts = {
               name: "_leverage",
               type: "uint256",
             },
+            {
+              internalType: "uint256",
+              name: "_deadline",
+              type: "uint256",
+            },
+            {
+              internalType: "uint8",
+              name: "_permitV",
+              type: "uint8",
+            },
+            {
+              internalType: "bytes32",
+              name: "_permitR",
+              type: "bytes32",
+            },
+            {
+              internalType: "bytes32",
+              name: "_permitS",
+              type: "bytes32",
+            },
           ],
-          name: "deposit",
+          name: "depositToAave",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -102,6 +135,19 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_usdEAmount",
+              type: "uint256",
+            },
+          ],
+          name: "stake",
+          outputs: [],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -123,6 +169,19 @@ const deployedContracts = {
           outputs: [
             {
               internalType: "contract IERC20",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "usdcTokenPermit",
+          outputs: [
+            {
+              internalType: "contract IERC20Permit",
               name: "",
               type: "address",
             },

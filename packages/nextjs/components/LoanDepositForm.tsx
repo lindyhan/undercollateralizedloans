@@ -1,6 +1,6 @@
 "use client";
 
-const DEPOSIT_AMOUNTS = [100, 200, 500];
+const DEPOSIT_AMOUNTS = [1, 200, 500];
 const LEVERAGE_OPTIONS = [1, 5, 10];
 
 interface LoanDepositFormProps {
@@ -9,6 +9,10 @@ interface LoanDepositFormProps {
   onAmountSelect: (amount: number) => void;
   onLeverageSelect: (leverage: number) => void;
   onDeposit: () => void;
+  buttonState?: {
+    text?: string;
+    disabled?: boolean;
+  };
 }
 
 export function LoanDepositForm({
@@ -17,6 +21,7 @@ export function LoanDepositForm({
   onAmountSelect,
   onLeverageSelect,
   onDeposit,
+  buttonState = { text: "Deposit ${selectedAmount} USDe at ${selectedLeverage}x Leverage", disabled: false },
 }: LoanDepositFormProps) {
   return (
     <div className="space-y-6">
@@ -78,10 +83,12 @@ export function LoanDepositForm({
       {selectedAmount && selectedLeverage && (
         <button
           onClick={onDeposit}
+          disabled={buttonState.disabled}
           className="w-full bg-green-500 text-white py-3 rounded-lg 
-                     hover:bg-green-600 transition-colors font-semibold"
+                     hover:bg-green-600 transition-colors font-semibold
+                     disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Deposit {selectedAmount} USDe at {selectedLeverage}x Leverage
+          {buttonState.text}
         </button>
       )}
     </div>

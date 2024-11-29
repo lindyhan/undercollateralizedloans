@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 interface LoanDetailsProps {
   userLoanDetails: {
     usdEDeposited: number;
@@ -7,11 +9,40 @@ interface LoanDetailsProps {
     usdcSupplied: number;
     aEthUsdcAmount: number;
     loanAmount: number;
+    cooldownEndTime?: number;
+  } | null;
+  loanClosureStatus: {
+    aUSDCWithdrawn: bigint;
+    sUSDECooledDown: bigint;
+    cooldownDuration: number;
+    cooldownStartTime: number;
   } | null;
   onCloseLoan: () => void;
+  onUnstake: () => void;
 }
 
-export function LoanDetails({ userLoanDetails, onCloseLoan }: LoanDetailsProps) {
+export function LoanDetails({ userLoanDetails, loanClosureStatus, onCloseLoan, onUnstake }: LoanDetailsProps) {
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    // If there's a cooldown end time, start countdown
+    if (userLoanDetails?.cooldownEndTime) {
+      const timer = setInterval(() => {
+        const now = Math.floor(Date.now() / 1000);
+        const remaining = userLoanDetails.cooldownEndTime! - now;
+
+        if (remaining > 0) {
+          setTimeRemaining(remaining);
+        } else {
+          setTimeRemaining(0);
+          clearInterval(timer);
+        }
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [userLoanDetails?.cooldownEndTime]);
+
   const hasActiveLoan = userLoanDetails && userLoanDetails.usdEDeposited > 0;
 
   // Default values if userLoanDetails is null
@@ -26,6 +57,13 @@ export function LoanDetails({ userLoanDetails, onCloseLoan }: LoanDetailsProps) 
   // Use userLoanDetails if it exists, otherwise use default values
   const loanDetails = userLoanDetails || defaultLoanDetails;
 
+  const formatTimeRemaining = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours}h ${minutes}m ${secs}s`;
+  };
+
   return (
     <div className="mt-6 bg-gray-50 p-4 rounded-lg border">
       <h2 className="text-xl font-semibold mb-4">Loan Details</h2>
@@ -38,7 +76,7 @@ export function LoanDetails({ userLoanDetails, onCloseLoan }: LoanDetailsProps) 
         <DetailRow label="Loan Amount" value={loanDetails.loanAmount.toFixed(2)} unit="USDC" />
       </div>
 
-      {hasActiveLoan && (
+      {hasActiveLoan && !loanClosureStatus && (
         <button
           onClick={onCloseLoan}
           className="mt-4 w-full bg-red-500 text-white py-2 rounded-lg 
@@ -46,6 +84,25 @@ export function LoanDetails({ userLoanDetails, onCloseLoan }: LoanDetailsProps) 
         >
           Close Loan
         </button>
+      )}
+
+      {loanClosureStatus && timeRemaining !== null && (
+        <div className="mt-4">
+          {timeRemaining > 0 ? (
+            <div className="text-center">
+              <p className="text-yellow-600 font-semibold">Cooldown Period Remaining</p>
+              <p className="text-xl font-bold">{formatTimeRemaining(timeRemaining)}</p>
+            </div>
+          ) : (
+            <button
+              onClick={onUnstake}
+              className="w-full bg-green-500 text-white py-2 rounded-lg 
+                         hover:bg-green-600 transition-colors font-semibold"
+            >
+              Unstake USDe
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

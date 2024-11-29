@@ -1,92 +1,295 @@
-import { abi } from "../../hardhat/artifacts/contracts/Loan_.sol/Loan.json";
-import { parseUnits } from "viem";
-import { useReadContract, useWriteContract } from "wagmi";
+//import { abi as loanAbi } from "../../hardhat/artifacts/contracts/Loan_.sol/Loan.json";
+import { ethers } from "ethers";
+import { createPublicClient, formatUnits, http, parseUnits } from "viem";
+import { sepolia } from "viem/chains";
+import { useWriteContract } from "wagmi";
 import { notification } from "~~/utils/scaffold-eth";
 
 export function useLoanContract() {
-  const contractAddress = process.env.NEXT_PUBLIC_LOAN_CONTRACT as `0x${string}`;
+  const stakingContractAddress = process.env.NEXT_PUBLIC_STAKING_CONTRACT as `0x${string}`;
+  const usdETokenAddress = process.env.NEXT_PUBLIC_USDE_TOKEN as `0x${string}`;
+  const deployerWalletAddress = process.env.NEXT_PUBLIC_DEPLOYER_WALLET as `0x${string}`;
+  const aaveContractAddress = process.env.NEXT_PUBLIC_AAVE_CONTRACT as `0x${string}`;
+  const usdcTokenAddress = process.env.NEXT_PUBLIC_USDC_TOKEN as `0x${string}`;
+  const aEthUSDCTokenAddress = process.env.NEXT_PUBLIC_AETHUSDC_TOKEN as `0x${string}`;
+  const privateKey = process.env.NEXT_PUBLIC_PRIVATE_KEY as `0x${string}`;
+
   const { writeContract } = useWriteContract();
 
-  // Read user deposits
-  const { data: userDepositsRaw } = useReadContract({
-    abi,
-    address: contractAddress,
-    functionName: "userDeposits",
-    args: [typeof window !== "undefined" ? (window as any)?.ethereum?.selectedAddress : "0x0"],
+  const client = createPublicClient({
+    chain: sepolia,
+    transport: http(),
   });
 
-  // Process user deposits
-  const userDeposits = (() => {
-    // Default object with all properties initialized
-    const defaultDeposits = {
-      usdEDeposited: 0,
-      sUsdEDeposited: 0,
-      usdcSupplied: 0,
-      aEthUsdcAmount: 0,
-      loanAmount: 0,
-    };
+  const provider = new ethers.JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
+  const deployerSigner = new ethers.Wallet(privateKey, provider);
 
-    if (!userDepositsRaw || !Array.isArray(userDepositsRaw)) {
-      return defaultDeposits;
-    }
-
-    // Destructure the returned tuple based on the ABI structure
-    const [usdEAmount, sUsdEAmount, usdcAmount, aEthUsdcAmount] = userDepositsRaw;
-
-    return {
-      usdEDeposited: Number(usdEAmount) / 10 ** 18,
-      sUsdEDeposited: Number(sUsdEAmount) / 10 ** 18,
-      usdcSupplied: Number(usdcAmount) / 10 ** 18,
-      aEthUsdcAmount: Number(aEthUsdcAmount) / 10 ** 18,
-      loanAmount: (Number(usdcAmount) / 10 ** 18) * 10, // Assuming 10x leverage calculation
-    };
-  })();
-
-  // Perform deposit with amount and leverage
-  const deposit = (usdEAmount: number, leverage: number) => {
-    try {
-      console.log("Deposit called with:", { usdEAmount, leverage });
-      console.log(
-        "Connected Address:",
-        typeof window !== "undefined" ? (window as any)?.ethereum?.selectedAddress : "No address",
+  const approveUSDe = async (amount: bigint) => {
+    console.log(`Approving ${Number(amount) / 10 ** 18} USDe deposit`);
+    return new Promise<void>((resolve, reject) => {
+      writeContract(
+        {
+          abi: [
+            {
+              name: "approve",
+              type: "function",
+              stateMutability: "nonpayable",
+              inputs: [
+                { name: "spender", type: "address" },
+                { name: "amount", type: "uint256" },
+              ],
+              outputs: [{ name: "", type: "bool" }],
+            },
+          ],
+          address: usdETokenAddress,
+          functionName: "approve",
+          args: [stakingContractAddress, amount],
+        },
+        {
+          onSuccess: () => {
+            notification.success("Approval successful");
+            console.log("USDe approval transaction successful.");
+            resolve();
+          },
+          onError: error => {
+            console.error("Approval error:", error);
+            notification.error((error as Error).message);
+            reject(new Error("Approval failed, stopping deposit process."));
+          },
+        },
       );
+    });
+  };
 
+  const depositUSDe = async (amount: bigint) => {
+    console.log("Depositing USDe...");
+    return new Promise<void>((resolve, reject) => {
+      writeContract(
+        {
+          abi: [
+            {
+              name: "deposit",
+              type: "function",
+              stateMutability: "nonpayable",
+              inputs: [
+                { name: "_usdEAmount", type: "uint256" },
+                { name: "_recipient", type: "address" },
+              ],
+              outputs: [],
+            },
+          ],
+          address: stakingContractAddress,
+          functionName: "deposit",
+          args: [amount, deployerWalletAddress],
+        },
+        {
+          onSuccess: () => {
+            notification.success("Deposit successful");
+            console.log("USDe deposit transaction successful.");
+            resolve();
+          },
+          onError: error => {
+            console.error("Deposit error:", error);
+            notification.error((error as Error).message);
+            reject(new Error("Deposit failed."));
+          },
+        },
+      );
+    });
+  };
+
+  const approveUSDC = new ethers.Contract(
+    usdcTokenAddress,
+    [
+      {
+        name: "approve",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [
+          { name: "spender", type: "address" },
+          { name: "usdcAmount", type: "uint256" },
+        ],
+        outputs: [{ name: "", type: "bool" }],
+      },
+    ],
+    deployerSigner,
+  );
+
+  const supplyUSDCToAave = new ethers.Contract(
+    aaveContractAddress,
+    [
+      {
+        name: "supply",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [
+          { name: "asset", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "onBehalfOf", type: "address" },
+          { name: "referralCode", type: "uint16" },
+        ],
+        outputs: [],
+      },
+    ],
+    deployerSigner,
+  );
+
+  const aEthUSDCContract = new ethers.Contract(
+    aEthUSDCTokenAddress,
+    [
+      {
+        name: "approve",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [
+          { name: "spender", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        outputs: [{ name: "", type: "bool" }],
+      },
+    ],
+    deployerSigner,
+  );
+
+  const aaveContract = new ethers.Contract(
+    aaveContractAddress,
+    [
+      {
+        name: "withdraw",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [
+          { name: "asset", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "to", type: "address" },
+        ],
+        outputs: [{ name: "", type: "uint256" }],
+      },
+      {
+        name: "balanceOf",
+        type: "function",
+        stateMutability: "view",
+        inputs: [{ name: "account", type: "address" }],
+        outputs: [{ name: "", type: "uint256" }],
+      },
+    ],
+    deployerSigner,
+  );
+
+  const stakingContract = new ethers.Contract(
+    stakingContractAddress,
+    [
+      {
+        name: "cooldownShares",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [{ name: "assets", type: "uint256" }],
+        outputs: [],
+      },
+      {
+        name: "balanceOf",
+        type: "function",
+        stateMutability: "view",
+        inputs: [{ name: "account", type: "address" }],
+        outputs: [{ name: "", type: "uint256" }],
+      },
+      {
+        name: "cooldownDuration",
+        type: "function",
+        stateMutability: "view",
+        inputs: [],
+        outputs: [{ name: "", type: "uint256" }],
+      },
+    ],
+    deployerSigner,
+  );
+
+  const deposit = async (usdEAmount: number, selectedLeverage: number) => {
+    try {
       const amountInWei = parseUnits(usdEAmount.toString(), 18);
-      const leverageValue = BigInt(leverage);
-      console.log("Amount in Wei:", amountInWei);
-      console.log("Leverage Value:", leverageValue);
 
-      const result = writeContract({
-        abi,
-        address: contractAddress,
-        functionName: "deposit",
-        args: [amountInWei, leverageValue],
-      });
-      console.log("Deposit transaction result:", result);
+      console.log("Starting approval process...");
+      await approveUSDe(amountInWei);
+
+      await depositUSDe(amountInWei);
+
+      const usdcAmount = parseUnits((Number(usdEAmount) * Number(selectedLeverage)).toString(), 6);
+
+      console.log(`Approving ${Number(usdcAmount) / 10 ** 6} USDC for Aave...`);
+
+      await approveUSDC.approve(aaveContractAddress, usdcAmount);
+
+      console.log("Waiting for USDC approval to complete...");
+      await new Promise(resolve => setTimeout(resolve, 15000));
+
+      console.log("Supplying USDC to Aave...");
+      await supplyUSDCToAave.supply(usdcTokenAddress, usdcAmount, deployerSigner, 0);
     } catch (error) {
-      console.error("Deposit error:", error);
-      console.log(typeof notification, notification);
-      notification.error((error as Error).message);
+      console.error("Deposit flow error:", error);
+      notification.error("Deposit flow failed. Check console for details.");
     }
   };
 
-  // Perform close loan
-  const closeLoan = () => {
+  const closeLoan = async () => {
     try {
-      writeContract({
-        abi,
-        address: contractAddress,
-        functionName: "closeLoan",
+      const aEthUSDC_Balance = await client.readContract({
+        address: aEthUSDCTokenAddress,
+        abi: [
+          {
+            name: "balanceOf",
+            type: "function",
+            stateMutability: "view",
+            inputs: [{ name: "account", type: "address" }],
+            outputs: [{ name: "", type: "uint256" }],
+          },
+        ],
+        functionName: "balanceOf",
+        args: [deployerSigner.address],
       });
+
+      console.log(`Withdrawing ${formatUnits(aEthUSDC_Balance, 6)} aEthUSDC`);
+
+      await aEthUSDCContract.approve(aaveContractAddress, aEthUSDC_Balance);
+      await new Promise(resolve => setTimeout(resolve, 15000));
+      console.log("aEthUSDC approval in progress..");
+
+      await aaveContract.withdraw(usdcTokenAddress, aEthUSDC_Balance, deployerSigner);
+
+      const sUSDe_balance = await stakingContract.balanceOf(deployerWalletAddress);
+      console.log(`Initiating cooldown for ${formatUnits(sUSDe_balance, 18)} sUSDe`);
+
+      await stakingContract.cooldownShares(sUSDe_balance);
+
+      const cooldownDuration = await stakingContract.cooldownDuration();
+      console.log(`Cooldown duration: ${cooldownDuration} seconds`);
+
+      return {
+        aUSDCWithdrawn: aEthUSDC_Balance,
+        sUSDECooledDown: sUSDe_balance,
+        cooldownDuration: Number(cooldownDuration),
+      };
     } catch (error) {
-      console.error("Close loan error:", error);
-      notification.error((error as Error).message);
+      console.error("Loan closure error:", error);
+      notification.error("Loan closure failed. Check console for details.");
+      throw error;
+    }
+  };
+
+  const unstakeSUSDe = async (address: `0x${string}`) => {
+    try {
+      await stakingContract.unstake(address);
+
+      notification.success("sUSDe successfully unstaked!");
+    } catch (error) {
+      console.error("Unstaking error:", error);
+      notification.error("Unstaking failed. Check console for details.");
+      throw error;
     }
   };
 
   return {
     deposit,
     closeLoan,
-    userDeposits,
+    unstakeSUSDe,
   };
 }

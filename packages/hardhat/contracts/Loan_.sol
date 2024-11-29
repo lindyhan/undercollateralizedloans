@@ -2,82 +2,96 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@aave/core-v3/contracts/interfaces/IPool.sol";
-
-interface IEthenaStaking {
-    function stake(address user, uint256 amount) external returns (uint256 sUSDeAmount);
-}
 
 contract Loan {
-    IERC20 public immutable usdEToken;
-    IERC20 public immutable usdcToken;
-    IPool public immutable aavePool;
-    IEthenaStaking public immutable ethenaStaking;
+    IERC20 public usdEToken;
+    IERC20 public usdcToken;
+    IERC20 public sUsdEToken;
+    IERC20 public aEthUsdcToken;
 
     address public deployer;
-    
-    mapping(address => UserDeposit) public userDeposits;
 
     struct UserDeposit {
-        uint256 usdEAmount;
-        uint256 sUsdEAmount;
-        uint256 usdcAmount;
-        uint256 aEthUsdcAmount;
+        uint256 usdEAmount;        // Original USDe amount sent to Ethena
+        uint256 sUsdEAmount;       // sUSDe tokens received from Ethena
+        uint256 usdcAmount;        // Original USDC amount sent to Aave
+        uint256 aEthUsdcAmount;    // aEthUSDC tokens received from Aave
     }
 
-    constructor(address _usdEToken, address _usdcToken, address _aavePool, address _ethenaStaking, address _deployer) {
+    mapping(address => UserDeposit) public userDeposits;
+
+    event StakeRecorded(
+        address indexed user, 
+        uint256 usdEAmount, 
+        uint256 sUsdEAmount
+    );
+
+    event AaveDepositRecorded(
+        address indexed user, 
+        uint256 usdcAmount, 
+        uint256 aEthUsdcAmount
+    );
+
+    event LoanClosed(
+        address indexed user,
+        uint256 sUsdEAmount,
+        uint256 aEthUsdcAmount
+    );
+
+    constructor(
+        address _usdEToken, 
+        address _usdcToken, 
+        address _sUsdEToken, 
+        address _aEthUsdcToken,
+        address _deployer
+    ) {
         usdEToken = IERC20(_usdEToken);
         usdcToken = IERC20(_usdcToken);
-        aavePool = IPool(_aavePool);
-        ethenaStaking = IEthenaStaking(_ethenaStaking);
+        sUsdEToken = IERC20(_sUsdEToken);
+        aEthUsdcToken = IERC20(_aEthUsdcToken);
         deployer = _deployer;
     }
 
-    function deposit(uint256 _usdEAmount, uint256 _leverage) external {
-        // 1. User sends USDe to Ethena staking contract
-        usdEToken.transferFrom(msg.sender, address(ethenaStaking), _usdEAmount);
+    function recordStake(
+        address user, 
+        uint256 usdEAmount, 
+        uint256 sUsdEAmount
+    ) external {
+        userDeposits[user].usdEAmount = usdEAmount;
+        userDeposits[user].sUsdEAmount = sUsdEAmount;
 
-        // 2. Internal contract receives sUSDe tokens from Ethena (assuming it's returned by stake)
-        uint256 sUsdEAmount = ethenaStaking.stake(msg.sender, _usdEAmount);
+        emit StakeRecorded(user, usdEAmount, sUsdEAmount);
+    }
 
-        // 3. Calculate and send USDC (USD * leverage) to Aave pool
-        uint256 _usdcAmount = _usdEAmount * _leverage;
-        usdcToken.approve(address(aavePool), _usdcAmount);
-        aavePool.deposit(address(usdcToken), _usdcAmount, address(this), 0);
+    function recordAaveDeposit(
+        address user, 
+        uint256 usdcAmount, 
+        uint256 aEthUsdcAmount
+    ) external {
+        userDeposits[user].usdcAmount = usdcAmount;
+        userDeposits[user].aEthUsdcAmount = aEthUsdcAmount;
 
-        // 4. Receive aEthUSDC tokens from Aave (assuming balance is updated by Aave)
-        uint256 aEthUsdcAmount = usdcToken.balanceOf(address(this)); 
-
-        // Store deposit details
-        userDeposits[msg.sender] = UserDeposit({
-            usdEAmount: _usdEAmount,
-            sUsdEAmount: sUsdEAmount,
-            usdcAmount: _usdcAmount,
-            aEthUsdcAmount: aEthUsdcAmount
-        });
+        emit AaveDepositRecorded(user, usdcAmount, aEthUsdcAmount);
     }
 
     function closeLoan() external {
-        // Renamed variable to avoid name conflict
         UserDeposit storage userDeposit = userDeposits[msg.sender];
+        
+        // Ensure the user has an active deposit
+        require(userDeposit.sUsdEAmount > 0, "No active loan to close");
 
-        // 1. Send sUSDe tokens back to Ethena staking contract (releasing USDe to user)
-        ethenaStaking.stake(msg.sender, userDeposit.sUsdEAmount);
+        // Emit event with loan closure details
+        emit LoanClosed(
+            msg.sender, 
+            userDeposit.sUsdEAmount, 
+            userDeposit.aEthUsdcAmount
+        );
 
-        // 2. Send aEthUSDC tokens to Aave for withdrawal
-        aavePool.withdraw(address(usdcToken), userDeposit.aEthUsdcAmount, address(this));
-
-        // 3. Aave will release the original USDC + interest to the deployer
-        uint256 withdrawnUSDC = usdcToken.balanceOf(address(this)); // Assuming Aave returns the USDC
-
-        // 4. Calculate excess USDC (withdrawn - original deposit)
-        uint256 excessUSDC = withdrawnUSDC - userDeposit.usdcAmount;
-
-        // 5. Send excess USDC to the user
-        usdcToken.transfer(msg.sender, excessUSDC);
-
-        // Remove user deposit record
+        // Clear the user's deposit record
         delete userDeposits[msg.sender];
     }
+
+    function getUserDeposit(address user) external view returns (UserDeposit memory) {
+        return userDeposits[user];
+    }
 }
-// deployed to 0xC66421665c37050ce2C2cA05f8aFE718ded5F993
