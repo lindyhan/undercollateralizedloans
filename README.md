@@ -40,6 +40,10 @@ the loan interest, of course).
 
 https://github.com/user-attachments/assets/dd803a5e-c208-4c10-90ca-ec9dfdfbd608
 
+### Etherscan (deposit flow)
+<img src = https://github.com/user-attachments/assets/7c58228d-f4c3-4ecf-a48b-b4f8a0a713d3 width=750>
+
+
 ### Notes
 Here we deal with USDe and USDC, both stablecoins. If either one or both of the collateral and the borrowed token 
 is a non-stablecoin, it introduces more risk parameters and there will be the need for a more complicated algo to manage the 
