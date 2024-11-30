@@ -1,6 +1,6 @@
 "use client";
 
-const DEPOSIT_AMOUNTS = [1, 200, 500];
+const DEPOSIT_AMOUNTS = [5, 200, 500];
 const LEVERAGE_OPTIONS = [1, 5, 10];
 
 interface LoanDepositFormProps {

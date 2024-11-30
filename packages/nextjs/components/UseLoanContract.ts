@@ -1,7 +1,6 @@
 //import { abi as loanAbi } from "../../hardhat/artifacts/contracts/Loan_.sol/Loan.json";
 import { ethers } from "ethers";
-import { createPublicClient, formatUnits, http, parseUnits } from "viem";
-import { sepolia } from "viem/chains";
+import { formatUnits, parseUnits } from "viem";
 import { useWriteContract } from "wagmi";
 import { notification } from "~~/utils/scaffold-eth";
 
@@ -15,11 +14,6 @@ export function useLoanContract() {
   const privateKey = process.env.NEXT_PUBLIC_PRIVATE_KEY as `0x${string}`;
 
   const { writeContract } = useWriteContract();
-
-  const client = createPublicClient({
-    chain: sepolia,
-    transport: http(),
-  });
 
   const provider = new ethers.JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
   const deployerSigner = new ethers.Wallet(privateKey, provider);
@@ -47,7 +41,6 @@ export function useLoanContract() {
         },
         {
           onSuccess: () => {
-            notification.success("Approval successful");
             console.log("USDe approval transaction successful.");
             resolve();
           },
@@ -84,7 +77,6 @@ export function useLoanContract() {
         },
         {
           onSuccess: () => {
-            notification.success("Deposit successful");
             console.log("USDe deposit transaction successful.");
             resolve();
           },
@@ -200,6 +192,13 @@ export function useLoanContract() {
         inputs: [],
         outputs: [{ name: "", type: "uint256" }],
       },
+      {
+        name: "unstake",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [{ name: "receiver", type: "address" }],
+        outputs: [],
+      },
     ],
     deployerSigner,
   );
@@ -220,42 +219,28 @@ export function useLoanContract() {
       await approveUSDC.approve(aaveContractAddress, usdcAmount);
 
       console.log("Waiting for USDC approval to complete...");
-      await new Promise(resolve => setTimeout(resolve, 15000));
+      await new Promise(resolve => setTimeout(resolve, 25000));
 
       console.log("Supplying USDC to Aave...");
       await supplyUSDCToAave.supply(usdcTokenAddress, usdcAmount, deployerSigner, 0);
     } catch (error) {
       console.error("Deposit flow error:", error);
-      notification.error("Deposit flow failed. Check console for details.");
     }
   };
 
-  const closeLoan = async () => {
+  const closeLoan = async (usdEAmount: number, selectedLeverage: number) => {
     try {
-      const aEthUSDC_Balance = await client.readContract({
-        address: aEthUSDCTokenAddress,
-        abi: [
-          {
-            name: "balanceOf",
-            type: "function",
-            stateMutability: "view",
-            inputs: [{ name: "account", type: "address" }],
-            outputs: [{ name: "", type: "uint256" }],
-          },
-        ],
-        functionName: "balanceOf",
-        args: [deployerSigner.address],
-      });
+      const usdcAmount = parseUnits((Number(usdEAmount) * Number(selectedLeverage)).toString(), 6);
 
-      console.log(`Withdrawing ${formatUnits(aEthUSDC_Balance, 6)} aEthUSDC`);
+      console.log(`Withdrawing ${Number(usdcAmount) / 10 ** 6} USDC`);
 
-      await aEthUSDCContract.approve(aaveContractAddress, aEthUSDC_Balance);
-      await new Promise(resolve => setTimeout(resolve, 15000));
+      await aEthUSDCContract.approve(aaveContractAddress, usdcAmount);
+      await new Promise(resolve => setTimeout(resolve, 30000));
       console.log("aEthUSDC approval in progress..");
 
-      await aaveContract.withdraw(usdcTokenAddress, aEthUSDC_Balance, deployerSigner);
+      await aaveContract.withdraw(usdcTokenAddress, usdcAmount, deployerWalletAddress);
 
-      const sUSDe_balance = await stakingContract.balanceOf(deployerWalletAddress);
+      const sUSDe_balance = await stakingContract.balanceOf(deployerSigner);
       console.log(`Initiating cooldown for ${formatUnits(sUSDe_balance, 18)} sUSDe`);
 
       await stakingContract.cooldownShares(sUSDe_balance);
@@ -264,13 +249,12 @@ export function useLoanContract() {
       console.log(`Cooldown duration: ${cooldownDuration} seconds`);
 
       return {
-        aUSDCWithdrawn: aEthUSDC_Balance,
+        aUSDCWithdrawn: usdcAmount,
         sUSDECooledDown: sUSDe_balance,
         cooldownDuration: Number(cooldownDuration),
       };
     } catch (error) {
       console.error("Loan closure error:", error);
-      notification.error("Loan closure failed. Check console for details.");
       throw error;
     }
   };
@@ -282,7 +266,6 @@ export function useLoanContract() {
       notification.success("sUSDe successfully unstaked!");
     } catch (error) {
       console.error("Unstaking error:", error);
-      notification.error("Unstaking failed. Check console for details.");
       throw error;
     }
   };

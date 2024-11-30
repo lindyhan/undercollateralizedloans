@@ -26,22 +26,43 @@ export default function LoansPage() {
     sUSDECooledDown: bigint;
     cooldownDuration: number;
     cooldownStartTime: number;
+    buttonText: string;
   } | null>(null);
 
   const { address } = useAccount();
   const { deposit, closeLoan, unstakeSUSDe } = useLoanContract();
+  const [closingLoan, setClosingLoan] = useState(false);
 
   useEffect(() => {
-    const fetchUserDeposits = async () => {
-      if (address) {
+    let unstakeTimer: NodeJS.Timeout;
+
+    if (loanClosureStatus && address) {
+      const cooldownEndTime = (loanClosureStatus.cooldownStartTime + loanClosureStatus.cooldownDuration) * 1000;
+      const timeUntilUnstake = cooldownEndTime - Date.now();
+
+      if (timeUntilUnstake > 0) {
+        unstakeTimer = setTimeout(async () => {
+          try {
+            await unstakeSUSDe(address as `0x${string}`);
+            setLoanClosureStatus(null);
+          } catch (error) {
+            console.error("Automatic unstaking failed:", error);
+          }
+        }, timeUntilUnstake);
+      } else {
+        unstakeSUSDe(address as `0x${string}`);
+        setLoanClosureStatus(null);
       }
+    }
+
+    return () => {
+      if (unstakeTimer) clearTimeout(unstakeTimer);
     };
-    fetchUserDeposits();
-  }, [address]);
+  }, [loanClosureStatus, address, unstakeSUSDe]);
 
   const handleAmountSelection = (amount: number) => {
     setSelectedAmount(amount);
-    setSelectedLeverage(null); // Reset leverage when amount changes
+    setSelectedLeverage(null);
   };
 
   const handleLeverageSelection = (leverage: number) => {
@@ -58,14 +79,11 @@ export default function LoansPage() {
 
     if (selectedAmount && selectedLeverage) {
       try {
-        setButtonState({ text: "Approving USDe...", disabled: true });
+        setButtonState({ text: "Depositing USDe and USDC..", disabled: true });
         await deposit(selectedAmount, selectedLeverage);
         setButtonState({ text: "Deposit Complete", disabled: false });
 
         setShowCloseLoanButton(true);
-
-        setSelectedAmount(null);
-        setSelectedLeverage(null);
       } catch (error) {
         console.error("Deposit failed:", error);
         setButtonState({ text: "Deposit Failed", disabled: false });
@@ -79,16 +97,43 @@ export default function LoansPage() {
       return;
     }
 
-    try {
-      const closureResult = await closeLoan();
+    setClosingLoan(true);
 
-      // Store closure details for countdown and future unstaking
+    try {
       setLoanClosureStatus({
-        ...closureResult,
+        aUSDCWithdrawn: 0n,
+        sUSDECooledDown: 0n,
+        cooldownDuration: 0,
         cooldownStartTime: Math.floor(Date.now() / 1000),
+        buttonText: "Closing loan..",
+      });
+
+      const closureResult = await closeLoan(selectedAmount!, selectedLeverage!);
+
+      setLoanClosureStatus({
+        aUSDCWithdrawn: BigInt(closureResult.aUSDCWithdrawn),
+        sUSDECooledDown: BigInt(closureResult.sUSDECooledDown),
+        cooldownDuration: closureResult.cooldownDuration,
+        cooldownStartTime: Math.floor(Date.now() / 1000),
+        buttonText: "Loan Closed. Starting 1 hr cooldown period..",
       });
     } catch (error) {
       console.error("Loan closure failed:", error);
+      setLoanClosureStatus(prev =>
+        prev
+          ? {
+              ...prev,
+            }
+          : {
+              aUSDCWithdrawn: 0n,
+              sUSDECooledDown: 0n,
+              cooldownDuration: 0,
+              cooldownStartTime: 0,
+              buttonText: "Close Loan Failed",
+            },
+      );
+    } finally {
+      setClosingLoan(false);
     }
   };
 
@@ -101,7 +146,6 @@ export default function LoansPage() {
     try {
       await unstakeSUSDe(address as `0x${string}`);
 
-      // Reset loan closure status and user deposits
       setLoanClosureStatus(null);
     } catch (error) {
       console.error("Unstaking failed:", error);
@@ -137,11 +181,16 @@ export default function LoansPage() {
               <div className="mt-6 text-center">
                 <button
                   onClick={handleCloseLoan}
+                  disabled={closingLoan || !!loanClosureStatus}
                   className="w-full bg-red-500 text-white py-3 rounded-lg 
-                           hover:bg-red-600 transition-colors font-semibold"
+                 hover:bg-red-600 transition-colors font-semibold
+                 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Close Loan
+                  {loanClosureStatus?.buttonText || "Close Loan"}
                 </button>
+                {loanClosureStatus && loanClosureStatus?.buttonText.includes("cooldown") && (
+                  <p className="mt-2 text-sm text-gray-600">You will receive your USDe in your wallet after 1 hr.</p>
+                )}
               </div>
             )}
           </>
