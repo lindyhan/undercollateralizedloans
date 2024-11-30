@@ -44,7 +44,7 @@ https://github.com/user-attachments/assets/dd803a5e-c208-4c10-90ca-ec9dfdfbd608
 <img src = https://github.com/user-attachments/assets/7c58228d-f4c3-4ecf-a48b-b4f8a0a713d3 width=750>
 
 ### Etherscan (close loan flow)
-<img src = https://github.com/user-attachments/assets/9663de66-907d-49dd-beff-b87e3a807a7e width 750>
+<img src = https://github.com/user-attachments/assets/9663de66-907d-49dd-beff-b87e3a807a7e width=750>
 
 
 
