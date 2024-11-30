@@ -17,8 +17,7 @@ result: preserve capital while enjoying short term upside of another risky asset
 ### DeFi vs TradFi
 Then why is it possible in TradFi? The key difference is that in TradFi borrowing, the lender has your collateral **as well as 
 lien to the underlying asset (the house / car / business that you are borrowing for)**. The lender isn't simply dishing out cash with 
-no backup. Whereas in DeFi lending, it is. Think about it this way: the lender has your 10% deposit as well as 100% of your house if 
-you vanish. That's 110%. Isn't that the same as DeFi - overcollateralized?
+no backup. Whereas in DeFi lending, it is. Think about it this way: the lender has your 10% deposit as well as the share of the item that the loan covers. The total value should be equal to or higher than market value. Isn't that the same as DeFi - overcollateralized?
 
 ### The Solution
 So we do the same as they do in TradFi - the lender controls the collateral as well as the underlying/borrowed asset, 
