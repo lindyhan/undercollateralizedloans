@@ -58,3 +58,4 @@ position for collateral call and liquidation trigger.
 Liquidity pools, staking/restaking, RWAs etc. Whatever yield the other platforms provide is combined with Ethena yield.
 - Looping is possible too. Deposit USDe for 10x Aave position, use that USDC supply to borrow ETH from Aave to restake in EtherFi,
 use eETH to supply liquidity in Uniswap etc etc. All representative tokens held by our platform.
+- Institutions under stricter regulation can use us as a proxy to earn yield from other DeFi protocols and assets while still only directly dealing with stablecoins (USDe or USDtb)
